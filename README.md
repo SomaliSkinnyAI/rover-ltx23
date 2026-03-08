@@ -32,7 +32,8 @@ python -m pip install -r .\requirements.txt
 6. Open `http://127.0.0.1:8765`
 7. Set `Comfy Input Dir` and `Output Root` if your ComfyUI install is not under `C:\ComfyUI`
 8. Add a seed image to your ComfyUI input folder
-9. Select a prompt pack and run a batch
+9. Set the video length in seconds if you want to override the workflow default
+10. Select a prompt pack and run a batch
 
 ## Screenshots
 
@@ -349,6 +350,7 @@ The `.txt` sidecar records:
 - image name
 - seed 1
 - seed 2
+- video length in seconds
 - filename prefix
 - positive prompt text
 - negative prompt text
@@ -380,6 +382,7 @@ http://127.0.0.1:8765
 
 - `Comfy Input Dir` controls the seed image dropdown.
 - `Output Root` controls the archive panel and where R.O.V.E.R. expects final output files.
+- `Video Length (Seconds)` overrides the workflow's default render length for the whole batch.
 - Those path fields can be changed live in the page.
 - The browser stores those values in local storage.
 - Use `Reload Paths` after changing them.
@@ -389,7 +392,7 @@ http://127.0.0.1:8765
 Preferred launcher:
 
 ```powershell
-.\run_rover_batch.ps1 --server-url http://127.0.0.1:8000/ --image my_seed.png --prompt-numbers 1-3 --variations 3
+.\run_rover_batch.ps1 --server-url http://127.0.0.1:8000/ --image my_seed.png --prompt-numbers 1-3 --variations 3 --video-length-seconds 12
 ```
 
 Other examples:

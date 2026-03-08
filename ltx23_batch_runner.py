@@ -15,6 +15,7 @@ from ltx23_batch_core import (
     DEFAULT_WORKFLOW,
     RunnerError,
     get_template_default_image,
+    get_template_default_video_length,
     load_json,
     run_batch,
 )
@@ -28,6 +29,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompts", type=Path, default=DEFAULT_PROMPTS)
     parser.add_argument("--image", help="Input image filename already present in the ComfyUI input folder.")
     parser.add_argument("--variations", type=int, default=DEFAULT_VARIATIONS)
+    parser.add_argument(
+        "--video-length-seconds",
+        type=int,
+        help="Optional global video length override in seconds.",
+    )
     parser.add_argument(
         "--prompt-numbers",
         help="Optional prompt numbers/ranges to run, for example: 1,3,5-7",
@@ -58,6 +64,7 @@ def build_config(args: argparse.Namespace) -> BatchConfig:
         variations=args.variations,
         prompt_numbers=args.prompt_numbers,
         seed_base=args.seed_base,
+        video_length_seconds=args.video_length_seconds,
         server_url=args.server_url,
         output_root=args.output_root,
         timeout_seconds=args.timeout_seconds,
@@ -70,6 +77,7 @@ def build_config(args: argparse.Namespace) -> BatchConfig:
 def run_cli(config: BatchConfig) -> int:
     template = load_json(config.workflow)
     default_image = config.image or get_template_default_image(template)
+    default_video_length = config.video_length_seconds or get_template_default_video_length(template)
     if not default_image:
         raise RunnerError("No input image was provided and the workflow template does not define one.")
 
@@ -88,7 +96,8 @@ def run_cli(config: BatchConfig) -> int:
 
     results = run_batch(config, progress_callback=on_progress)
     if not config.dry_run:
-        print(f"Finished {len(results)} run(s) using image {default_image}.")
+        length_suffix = f" at {default_video_length} seconds" if default_video_length else ""
+        print(f"Finished {len(results)} run(s) using image {default_image}{length_suffix}.")
     return 0
 
 

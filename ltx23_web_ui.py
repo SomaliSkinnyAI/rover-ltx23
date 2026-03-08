@@ -25,8 +25,11 @@ from ltx23_batch_core import (
     DEFAULT_PROMPTS,
     DEFAULT_WORKFLOW,
     RunnerError,
+    StopRequestedError,
     discover_prompt_packs,
     get_template_default_image,
+    get_template_default_video_length,
+    interrupt_comfy,
     load_prompt_pack,
     load_json,
     prompt_pack_key,
@@ -64,8 +67,11 @@ class JobRecord:
     current_prompt_id: str | None = None
     current_message: str = ""
     error: str | None = None
+    stop_requested: bool = False
+    stop_requested_at: float | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
     results: list[dict[str, Any]] = field(default_factory=list)
+    stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +92,8 @@ class JobRecord:
             "currentPromptId": self.current_prompt_id,
             "currentMessage": self.current_message,
             "error": self.error,
+            "stopRequested": self.stop_requested,
+            "stopRequestedAt": iso_timestamp(self.stop_requested_at),
             "events": self.events[-80:],
             "results": self.results,
         }
@@ -140,6 +148,7 @@ class JobManager:
             "outputRoot": str(self.output_root),
             "comfyInputDir": str(self.comfy_input_dir),
             "defaultImage": get_template_default_image(template),
+            "defaultVideoLength": get_template_default_video_length(template),
             "defaultServerUrl": self.default_comfy_url,
         }
 
@@ -250,6 +259,7 @@ class JobManager:
                     "promptFile": prompt_pack_key(config.prompts),
                     "image": config.image,
                     "variations": config.variations,
+                    "videoLengthSeconds": config.video_length_seconds,
                     "promptNumbers": config.prompt_numbers,
                     "seedBase": config.seed_base,
                     "comfyInputDir": str(self.resolve_comfy_input_dir(payload.get("comfyInputDir"))),
@@ -263,6 +273,58 @@ class JobManager:
         thread = threading.Thread(target=self._run_job, args=(job_id, config), daemon=True)
         thread.start()
         return job.to_dict()
+
+    def stop_active_job(self) -> dict[str, Any]:
+        with self.lock:
+            if self.active_job_id is None:
+                raise RunnerError("There is no active batch to stop.")
+
+            job = self.jobs[self.active_job_id]
+            if job.stop_requested:
+                raise RunnerError("Stop has already been requested for the active batch.")
+
+            job.stop_requested = True
+            job.stop_requested_at = time.time()
+            job.stop_event.set()
+            if job.status in {"queued", "running"}:
+                job.status = "stopping"
+            if job.current_prompt_id:
+                job.current_message = "Stop requested. Sending interrupt to ComfyUI."
+            else:
+                job.current_message = "Stop requested. The batch will stop before queueing more runs."
+            job.events.append(
+                {
+                    "event_type": "stop_requested",
+                    "message": job.current_message,
+                    "timestamp": time.time(),
+                }
+            )
+            server_url = str(job.config.get("serverUrl") or self.default_comfy_url)
+            should_interrupt = bool(job.current_prompt_id)
+
+        if should_interrupt:
+            message = "Stop requested. Interrupt sent to ComfyUI."
+            try:
+                interrupt_comfy(server_url)
+            except RunnerError as exc:
+                message = f"Stop requested. Failed to interrupt ComfyUI immediately: {exc}"
+
+            with self.lock:
+                current = self.jobs.get(job.job_id)
+                if current is not None and current.status in {"queued", "running", "stopping"}:
+                    current.status = "stopping"
+                    current.current_message = message
+                    current.events.append(
+                        {
+                            "event_type": "stop_signal_sent",
+                            "message": message,
+                            "timestamp": time.time(),
+                        }
+                    )
+                    return current.to_dict()
+
+        with self.lock:
+            return self.jobs[job.job_id].to_dict()
 
     def _build_config(self, payload: dict[str, Any]) -> BatchConfig:
         image = str(payload.get("image", "")).strip()
@@ -290,6 +352,16 @@ class JobManager:
             except (TypeError, ValueError) as exc:
                 raise RunnerError("Seed base must be blank or an integer.") from exc
 
+        video_length_raw = payload.get("videoLengthSeconds")
+        video_length_seconds = None
+        if video_length_raw not in (None, ""):
+            try:
+                video_length_seconds = int(video_length_raw)
+            except (TypeError, ValueError) as exc:
+                raise RunnerError("Video length must be blank or a whole number of seconds.") from exc
+            if video_length_seconds < 1 or video_length_seconds > 300:
+                raise RunnerError("Video length must be between 1 and 300 seconds.")
+
         server_url = str(payload.get("serverUrl") or self.default_comfy_url).strip()
         if not server_url:
             raise RunnerError("A ComfyUI server URL is required.")
@@ -305,6 +377,7 @@ class JobManager:
             variations=variations,
             prompt_numbers=prompt_numbers,
             seed_base=seed_base,
+            video_length_seconds=video_length_seconds,
             server_url=server_url,
             output_root=output_root,
             timeout_seconds=7200,
@@ -314,9 +387,13 @@ class JobManager:
     def _run_job(self, job_id: str, config: BatchConfig) -> None:
         with self.lock:
             job = self.jobs[job_id]
-            job.status = "running"
+            job.status = "stopping" if job.stop_event.is_set() else "running"
             job.started_at = time.time()
-            job.current_message = "Preparing batch plan"
+            job.current_message = (
+                "Stop requested. Waiting to halt before queueing."
+                if job.stop_event.is_set()
+                else "Preparing batch plan"
+            )
 
         def on_progress(event) -> None:
             event_dict = event.to_dict()
@@ -342,9 +419,31 @@ class JobManager:
                     current.current_seed_2 = event.seed_2
                 if event.prompt_id is not None:
                     current.current_prompt_id = event.prompt_id
+                if event.event_type == "run_completed" and event.output_paths:
+                    current.results.append(
+                        {
+                            "prompt_number": event.prompt_number,
+                            "prompt_title": event.prompt_title,
+                            "variation": event.variation,
+                            "seed_1": event.seed_1,
+                            "seed_2": event.seed_2,
+                            "video_length_seconds": current.config.get("videoLengthSeconds"),
+                            "prompt_id": event.prompt_id,
+                            "filename_prefix": event.filename_prefix,
+                            "output_paths": event.output_paths,
+                        }
+                    )
 
         try:
-            results = run_batch(config, progress_callback=on_progress)
+            results = run_batch(config, progress_callback=on_progress, should_stop=job.stop_event.is_set)
+        except StopRequestedError as exc:
+            with self.lock:
+                current = self.jobs[job_id]
+                current.status = "stopped"
+                current.finished_at = time.time()
+                current.current_message = str(exc)
+                self.active_job_id = None
+            return
         except Exception as exc:  # noqa: BLE001
             with self.lock:
                 current = self.jobs[job_id]
@@ -459,6 +558,14 @@ class LTXRequestHandler(BaseHTTPRequestHandler):
                 self.send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
                 return
             self.send_json(HTTPStatus.CREATED, job)
+            return
+        if self.path == "/api/jobs/stop":
+            try:
+                job = self.app.manager.stop_active_job()
+            except RunnerError as exc:
+                self.send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+                return
+            self.send_json(HTTPStatus.ACCEPTED, job)
             return
         if self.path == "/api/open-output":
             try:

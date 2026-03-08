@@ -301,7 +301,9 @@ h2 {
 }
 
 .ghost-button,
-.primary-button {
+.primary-button,
+.danger-button,
+.prompt-detail-button {
   appearance: none;
   border: 0;
   border-radius: 14px;
@@ -318,6 +320,12 @@ h2 {
   box-shadow: 0 14px 34px rgba(244, 162, 89, 0.28);
 }
 
+.danger-button {
+  color: #ffe8e3;
+  background: linear-gradient(135deg, #8c2028, #c43b44);
+  box-shadow: 0 14px 34px rgba(196, 59, 68, 0.28);
+}
+
 .ghost-button {
   color: var(--text);
   background: var(--surface-soft);
@@ -325,12 +333,16 @@ h2 {
 }
 
 .primary-button:hover,
-.ghost-button:hover {
+.ghost-button:hover,
+.danger-button:hover,
+.prompt-detail-button:hover {
   transform: translateY(-1px);
 }
 
 .primary-button:disabled,
-.ghost-button:disabled {
+.ghost-button:disabled,
+.danger-button:disabled,
+.prompt-detail-button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
@@ -458,7 +470,7 @@ h2 {
   position: relative;
   display: grid;
   gap: 10px;
-  min-height: 168px;
+  min-height: 196px;
   padding: 18px;
   border-radius: 20px;
   background: var(--prompt-unselected-bg);
@@ -531,10 +543,120 @@ h2 {
   line-height: 1.45;
 }
 
+.prompt-card-actions {
+  margin-top: auto;
+}
+
+.prompt-detail-button {
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  justify-self: start;
+}
+
 .mission-strip {
   display: grid;
   gap: 14px;
   margin-bottom: 18px;
+}
+
+.mission-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+
+.mission-alert.is-live {
+  background: rgba(255, 83, 83, 0.12);
+  border-color: rgba(255, 104, 104, 0.3);
+  color: #ffd9d9;
+  box-shadow:
+    0 0 0 1px rgba(255, 83, 83, 0.08),
+    0 0 30px rgba(255, 83, 83, 0.18);
+}
+
+.mission-alert.is-stopping {
+  background: rgba(255, 177, 76, 0.12);
+  border-color: rgba(255, 190, 100, 0.28);
+  color: #ffe5ba;
+}
+
+.mission-alert-text {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mission-beacon {
+  position: relative;
+  width: 48px;
+  height: 22px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mission-beacon::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 110deg,
+    rgba(255, 255, 255, 0.94) 160deg,
+    transparent 220deg,
+    transparent 360deg
+  );
+  opacity: 0;
+}
+
+.mission-alert.is-live .mission-beacon {
+  background: linear-gradient(180deg, #5c1616, #29090d);
+  border-color: rgba(255, 135, 135, 0.22);
+  box-shadow:
+    inset 0 0 12px rgba(255, 70, 70, 0.32),
+    0 0 22px rgba(255, 70, 70, 0.24);
+}
+
+.mission-alert.is-live .mission-beacon::before {
+  opacity: 1;
+  animation: beacon-rotate 1.15s linear infinite;
+}
+
+.mission-alert.is-live .mission-beacon-core {
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 115, 115, 0.7), rgba(83, 13, 13, 0.92));
+}
+
+.mission-alert.is-stopping .mission-beacon {
+  background: linear-gradient(180deg, #5a3a11, #231408);
+  border-color: rgba(255, 207, 117, 0.22);
+  box-shadow: inset 0 0 12px rgba(255, 188, 92, 0.26);
+}
+
+.mission-alert.is-stopping .mission-beacon::before {
+  opacity: 0.8;
+  animation: beacon-rotate 1.3s linear infinite;
+}
+
+.mission-alert.is-stopping .mission-beacon-core {
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 209, 132, 0.7), rgba(92, 53, 8, 0.9));
 }
 
 .mission-state {
@@ -545,15 +667,25 @@ h2 {
 }
 
 .mission-state.running {
-  background: rgba(155, 211, 200, 0.14);
-  border-color: rgba(155, 211, 200, 0.28);
-  color: var(--signal);
-  animation: live-pulse 1.45s ease-in-out infinite;
+  background: rgba(255, 83, 83, 0.14);
+  border-color: rgba(255, 104, 104, 0.32);
+  color: #ffd9d9;
+  animation: live-pulse 1.05s ease-in-out infinite;
+}
+
+.mission-state.stopping {
+  background: rgba(255, 188, 92, 0.14);
+  border-color: rgba(255, 188, 92, 0.28);
+  color: #ffe1ab;
 }
 
 #jobStatusText.live {
-  color: var(--accent-bright);
-  animation: telemetry-blink 1.8s ease-in-out infinite;
+  color: #ffd6d6;
+  animation: telemetry-blink 0.9s steps(2, end) infinite;
+}
+
+#jobStatusText.warning {
+  color: #ffd28c;
 }
 
 .mission-state.failed {
@@ -575,6 +707,28 @@ h2 {
   height: 100%;
   background: linear-gradient(90deg, var(--signal), var(--accent-bright));
   transition: width 0.24s ease;
+}
+
+.live-panel.is-live {
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 83, 83, 0.1),
+    0 0 40px rgba(255, 83, 83, 0.18);
+}
+
+.live-panel.is-live .mission-progress-bar {
+  background: linear-gradient(90deg, #cb3741, #ff9a6e);
+}
+
+.live-panel.is-stopping {
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 188, 92, 0.09),
+    0 0 30px rgba(255, 188, 92, 0.14);
+}
+
+.live-panel.is-stopping .mission-progress-bar {
+  background: linear-gradient(90deg, #d98a26, #f2c06d);
 }
 
 .live-panel.is-live .mission-progress-bar {
@@ -706,6 +860,117 @@ h2 {
   transform: translateY(-1px);
 }
 
+.recent-open-button.is-viewed,
+.recent-item.is-viewed .recent-open-button {
+  color: rgba(237, 247, 246, 0.86);
+  background: linear-gradient(135deg, rgba(49, 65, 73, 0.96), rgba(27, 36, 42, 0.96));
+  box-shadow: none;
+}
+
+.prompt-modal {
+  width: min(920px, calc(100vw - 28px));
+  max-height: calc(100vh - 34px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: linear-gradient(180deg, var(--panel-top), var(--panel-bottom));
+  color: var(--text);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+
+.prompt-modal::backdrop {
+  background: rgba(3, 8, 13, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.prompt-modal-shell {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.prompt-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.prompt-modal-body {
+  display: grid;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.prompt-modal-section {
+  display: grid;
+  gap: 12px;
+}
+
+.prompt-modal-section h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-bright);
+}
+
+.prompt-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prompt-modal-card,
+.prompt-beat-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface-soft);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prompt-modal-card span,
+.prompt-beat-item strong {
+  display: block;
+  color: var(--accent-bright);
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.prompt-modal-card p,
+.prompt-beat-item p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.prompt-beat-list {
+  display: grid;
+  gap: 10px;
+}
+
+.prompt-extra-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.prompt-modal-code {
+  margin: 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .empty-state {
   margin: 0;
   padding: 16px;
@@ -743,7 +1008,7 @@ h2 {
     opacity: 1;
   }
   50% {
-    opacity: 0.62;
+    opacity: 0.38;
   }
 }
 
@@ -753,6 +1018,15 @@ h2 {
   }
   to {
     transform: translateX(120%);
+  }
+}
+
+@keyframes beacon-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -781,7 +1055,8 @@ h2 {
 
   .two-col,
   .stat-grid,
-  .status-card dl {
+  .status-card dl,
+  .prompt-modal-grid {
     grid-template-columns: 1fr;
   }
 }

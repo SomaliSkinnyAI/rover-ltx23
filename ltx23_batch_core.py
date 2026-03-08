@@ -29,6 +29,7 @@ NEGATIVE_PROMPT_NODE = "110"
 IMAGE_NODE = "167"
 OUTPUT_NODE = "140"
 TEXT_TO_VIDEO_NODE = "290"
+LENGTH_SECONDS_NODE = "291"
 FIRST_NOISE_NODE = "115"
 SECOND_NOISE_NODE = "114"
 PREVIEW_OVERRIDE_NODE = "337"
@@ -39,6 +40,10 @@ VIDEO_EXTENSIONS = {".avi", ".gif", ".mkv", ".mov", ".mp4", ".webm"}
 
 
 class RunnerError(RuntimeError):
+    pass
+
+
+class StopRequestedError(RunnerError):
     pass
 
 
@@ -81,6 +86,7 @@ class RunPlan:
     variation: int
     seed_1: int
     seed_2: int
+    video_length_seconds: int | None
     image_name: str
     filename_prefix: str
     positive_prompt: str
@@ -95,6 +101,7 @@ class RunResult:
     variation: int
     seed_1: int
     seed_2: int
+    video_length_seconds: int | None
     prompt_id: str
     filename_prefix: str
     image_name: str
@@ -109,6 +116,7 @@ class BatchConfig:
     variations: int = DEFAULT_VARIATIONS
     prompt_numbers: str | list[int] | None = None
     seed_base: int | None = None
+    video_length_seconds: int | None = None
     server_url: str = DEFAULT_SERVER_URL
     output_root: Path = DEFAULT_OUTPUT_ROOT
     timeout_seconds: int = 7200
@@ -139,6 +147,7 @@ class BatchProgressEvent:
 
 
 ProgressCallback = Callable[[BatchProgressEvent], None]
+StopRequestedCallback = Callable[[], bool]
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -397,6 +406,7 @@ def prompt_sequence_to_dict(sequence: PromptSequence) -> dict[str, Any]:
         "concept": sequence.concept,
         "duration": sequence.duration,
         "beats": [{"timestamp": ts, "description": desc} for ts, desc in sequence.beats],
+        "extras": sequence.extras,
         "speechSound": sequence.speech_sound,
         "positivePrompt": sequence.to_prompt_text(),
         "preview": " ".join(preview_lines).strip(),
@@ -479,6 +489,14 @@ def get_template_default_image(template: dict[str, Any]) -> str | None:
     return template.get(IMAGE_NODE, {}).get("inputs", {}).get("image")
 
 
+def get_template_default_video_length(template: dict[str, Any]) -> int | None:
+    raw = template.get(LENGTH_SECONDS_NODE, {}).get("inputs", {}).get("value")
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def build_payload(
     template: dict[str, Any],
     positive_prompt: str,
@@ -486,6 +504,7 @@ def build_payload(
     seed_1: int,
     seed_2: int,
     filename_prefix: str,
+    video_length_seconds: int | None = None,
 ) -> dict[str, Any]:
     payload = copy.deepcopy(template)
     payload[POSITIVE_PROMPT_NODE]["inputs"]["text"] = positive_prompt
@@ -494,6 +513,8 @@ def build_payload(
     payload[IMAGE_NODE]["inputs"]["image"] = image_name
     payload[OUTPUT_NODE]["inputs"]["filename_prefix"] = filename_prefix.replace("\\", "/")
     payload[TEXT_TO_VIDEO_NODE]["inputs"]["value"] = False
+    if video_length_seconds is not None and LENGTH_SECONDS_NODE in payload:
+        payload[LENGTH_SECONDS_NODE]["inputs"]["value"] = int(video_length_seconds)
     # The desktop preview override can crash headless/API runs in some KJNodes setups.
     if NAG_MODEL_NODE in payload and BASE_MODEL_NODE in payload:
         model_input = payload[NAG_MODEL_NODE]["inputs"].get("model")
@@ -508,6 +529,7 @@ def build_run_plans(
     variations: int,
     image_name: str,
     rng: random.Random,
+    video_length_seconds: int | None = None,
 ) -> list[RunPlan]:
     negative_prompt = template[NEGATIVE_PROMPT_NODE]["inputs"]["text"]
     plans: list[RunPlan] = []
@@ -524,6 +546,7 @@ def build_run_plans(
                 seed_1=seed_1,
                 seed_2=seed_2,
                 filename_prefix=filename_prefix,
+                video_length_seconds=video_length_seconds,
             )
             plans.append(
                 RunPlan(
@@ -531,6 +554,7 @@ def build_run_plans(
                     variation=variation,
                     seed_1=seed_1,
                     seed_2=seed_2,
+                    video_length_seconds=video_length_seconds,
                     image_name=image_name,
                     filename_prefix=filename_prefix,
                     positive_prompt=positive_prompt,
@@ -549,6 +573,7 @@ def sidecar_text(plan: RunPlan) -> str:
         f"Image: {plan.image_name}",
         f"Seed 1: {plan.seed_1}",
         f"Seed 2: {plan.seed_2}",
+        f"Video Length (Seconds): {plan.video_length_seconds if plan.video_length_seconds is not None else 'Template default'}",
         f"Filename Prefix: {plan.filename_prefix}",
         "",
         "Positive Prompt:",
@@ -583,6 +608,10 @@ def request_json(method: str, url: str, payload: dict[str, Any] | None = None) -
         raise RunnerError(f"Invalid JSON response from {url}: {body}") from exc
 
 
+def interrupt_comfy(server_url: str) -> None:
+    request_json("POST", f"{server_url.rstrip('/')}/interrupt")
+
+
 def queue_prompt(server_url: str, payload: dict[str, Any]) -> str:
     response = request_json("POST", f"{server_url.rstrip('/')}/prompt", {"prompt": payload})
     prompt_id = response.get("prompt_id")
@@ -594,11 +623,59 @@ def queue_prompt(server_url: str, payload: dict[str, Any]) -> str:
     return prompt_id
 
 
-def wait_for_completion(server_url: str, prompt_id: str, timeout_seconds: int, poll_seconds: float) -> dict[str, Any]:
+def iter_queue_prompt_ids(queue_items: Any) -> Iterable[str]:
+    if not isinstance(queue_items, list):
+        return
+    for item in queue_items:
+        if isinstance(item, (list, tuple)) and len(item) > 1 and isinstance(item[1], str):
+            yield item[1]
+
+
+def wait_for_prompt_exit_queue(
+    server_url: str,
+    prompt_id: str,
+    timeout_seconds: int = 45,
+    poll_seconds: float = 1.0,
+) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    queue_url = f"{server_url.rstrip('/')}/queue"
+
+    while time.monotonic() < deadline:
+        queue_state = request_json("GET", queue_url)
+        queue_prompt_ids = set(iter_queue_prompt_ids(queue_state.get("queue_running"))) | set(
+            iter_queue_prompt_ids(queue_state.get("queue_pending"))
+        )
+        if prompt_id not in queue_prompt_ids:
+            return True
+        time.sleep(poll_seconds)
+    return False
+
+
+def wait_for_completion(
+    server_url: str,
+    prompt_id: str,
+    timeout_seconds: int,
+    poll_seconds: float,
+    should_stop: StopRequestedCallback | None = None,
+) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_seconds
     history_url = f"{server_url.rstrip('/')}/history/{prompt_id}"
 
     while time.monotonic() < deadline:
+        if should_stop is not None and should_stop():
+            stop_message = "Stop requested by operator."
+            try:
+                interrupt_comfy(server_url)
+                queue_cleared = wait_for_prompt_exit_queue(server_url, prompt_id)
+                if not queue_cleared:
+                    stop_message = (
+                        "Stop requested by operator. ComfyUI interrupt was sent, but queue shutdown "
+                        "was not confirmed before timeout."
+                    )
+            except RunnerError:
+                stop_message = "Stop requested by operator. ComfyUI interrupt was sent."
+            raise StopRequestedError(stop_message)
+
         history = request_json("GET", history_url)
         if history:
             if prompt_id in history:
@@ -734,9 +811,15 @@ def emit_progress(
     )
 
 
-def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = None) -> list[RunResult]:
+def run_batch(
+    config: BatchConfig,
+    progress_callback: ProgressCallback | None = None,
+    should_stop: StopRequestedCallback | None = None,
+) -> list[RunResult]:
     if config.variations < 1:
         raise RunnerError("--variations must be at least 1.")
+    if config.video_length_seconds is not None and not 1 <= int(config.video_length_seconds) <= 300:
+        raise RunnerError("--video-length-seconds must be between 1 and 300.")
 
     template = load_json(config.workflow)
     validate_template(template)
@@ -751,6 +834,7 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
         variations=config.variations,
         image_name=image_name,
         rng=make_rng(config.seed_base),
+        video_length_seconds=config.video_length_seconds,
     )
 
     emit_progress(
@@ -760,6 +844,16 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
         total_runs=len(plans),
         completed_runs=0,
     )
+
+    if should_stop is not None and should_stop():
+        emit_progress(
+            progress_callback,
+            "batch_stopped",
+            "Stop requested before any runs were queued.",
+            total_runs=len(plans),
+            completed_runs=0,
+        )
+        raise StopRequestedError("Stop requested before any runs were queued.")
 
     if config.dry_run:
         if config.dry_run_dir:
@@ -776,6 +870,9 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
     results: list[RunResult] = []
     try:
         for index, plan in enumerate(plans, start=1):
+            if should_stop is not None and should_stop():
+                raise StopRequestedError("Stop requested by operator.")
+
             emit_progress(
                 progress_callback,
                 "run_started",
@@ -793,6 +890,8 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
                 seed_2=plan.seed_2,
                 filename_prefix=plan.filename_prefix,
             )
+            if should_stop is not None and should_stop():
+                raise StopRequestedError("Stop requested by operator.")
             prompt_id = queue_prompt(config.server_url, plan.payload)
             emit_progress(
                 progress_callback,
@@ -814,6 +913,7 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
                 prompt_id=prompt_id,
                 timeout_seconds=config.timeout_seconds,
                 poll_seconds=config.poll_seconds,
+                should_stop=should_stop,
             )
             video_paths = extract_video_paths(history_record, config.output_root)
             if not video_paths:
@@ -828,6 +928,7 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
                 variation=plan.variation,
                 seed_1=plan.seed_1,
                 seed_2=plan.seed_2,
+                video_length_seconds=plan.video_length_seconds,
                 prompt_id=prompt_id,
                 filename_prefix=plan.filename_prefix,
                 image_name=plan.image_name,
@@ -853,6 +954,15 @@ def run_batch(config: BatchConfig, progress_callback: ProgressCallback | None = 
                 filename_prefix=plan.filename_prefix,
                 output_paths=result.output_paths,
             )
+    except StopRequestedError as exc:
+        emit_progress(
+            progress_callback,
+            "batch_stopped",
+            str(exc),
+            total_runs=len(plans),
+            completed_runs=len(results),
+        )
+        raise
     except Exception as exc:
         emit_progress(
             progress_callback,

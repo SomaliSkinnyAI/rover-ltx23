@@ -7,10 +7,12 @@ const state = {
   activeJobId: null,
   recentJobs: [],
   defaults: null,
+  viewedVideos: new Set(),
 };
 
 const THEME_KEY = "ltx23-theme";
 const RUNTIME_CONFIG_KEY = "ltx23-runtime-config";
+const VIEWED_VIDEOS_KEY = "ltx23-viewed-videos";
 const DEFAULT_THEME = "signal";
 
 const elements = {
@@ -24,6 +26,7 @@ const elements = {
   promptDeckSubtitle: document.getElementById("promptDeckSubtitle"),
   imageSelect: document.getElementById("imageSelect"),
   variationsInput: document.getElementById("variationsInput"),
+  videoLengthInput: document.getElementById("videoLengthInput"),
   seedBaseInput: document.getElementById("seedBaseInput"),
   promptGrid: document.getElementById("promptGrid"),
   selectionSummary: document.getElementById("selectionSummary"),
@@ -36,17 +39,24 @@ const elements = {
   themeSelect: document.getElementById("themeSelect"),
   jobGuardLabel: document.getElementById("jobGuardLabel"),
   startRunButton: document.getElementById("startRunButton"),
+  stopRunButton: document.getElementById("stopRunButton"),
   selectAllButton: document.getElementById("selectAllButton"),
   clearAllButton: document.getElementById("clearAllButton"),
   runForm: document.getElementById("runForm"),
   jobStatusText: document.getElementById("jobStatusText"),
   livePanel: document.getElementById("livePanel"),
+  missionAlert: document.getElementById("missionAlert"),
+  missionAlertText: document.getElementById("missionAlertText"),
   missionState: document.getElementById("missionState"),
   progressBar: document.getElementById("progressBar"),
   currentJobPanel: document.getElementById("currentJobPanel"),
   eventLog: document.getElementById("eventLog"),
   recentOutputs: document.getElementById("recentOutputs"),
   promptCardTemplate: document.getElementById("promptCardTemplate"),
+  promptModal: document.getElementById("promptModal"),
+  promptModalTitle: document.getElementById("promptModalTitle"),
+  promptModalBody: document.getElementById("promptModalBody"),
+  promptModalCloseButton: document.getElementById("promptModalCloseButton"),
 };
 
 async function fetchJson(url, options = {}) {
@@ -78,11 +88,24 @@ function loadRuntimeConfig() {
   }
 }
 
+function loadViewedVideos() {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(VIEWED_VIDEOS_KEY) || "[]");
+    if (!Array.isArray(raw)) {
+      return new Set();
+    }
+    return new Set(raw.filter((value) => typeof value === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
 function getRuntimeConfig() {
   return {
     serverUrl: elements.serverUrlInput.value.trim() || state.defaults?.defaultServerUrl || "",
     comfyInputDir: elements.comfyInputDirInput.value.trim() || state.defaults?.comfyInputDir || "",
     outputRoot: elements.outputRootInput.value.trim() || state.defaults?.outputRoot || "",
+    videoLengthSeconds: elements.videoLengthInput.value.trim() || String(state.defaults?.defaultVideoLength || ""),
   };
 }
 
@@ -94,6 +117,22 @@ function persistRuntimeConfig() {
   const runtimeConfig = getRuntimeConfig();
   window.localStorage.setItem(RUNTIME_CONFIG_KEY, JSON.stringify(runtimeConfig));
   updateOutputRootDisplay(runtimeConfig.outputRoot);
+}
+
+function persistViewedVideos() {
+  window.localStorage.setItem(VIEWED_VIDEOS_KEY, JSON.stringify([...state.viewedVideos]));
+}
+
+function markVideoViewed(path) {
+  if (!path) {
+    return;
+  }
+  state.viewedVideos.add(path);
+  persistViewedVideos();
+}
+
+function isVideoViewed(path) {
+  return state.viewedVideos.has(path);
 }
 
 function formatDate(value) {
@@ -108,6 +147,108 @@ function formatInteger(value) {
     return "Not set";
   }
   return Number(value).toLocaleString();
+}
+
+function titleCaseStatus(status) {
+  if (!status) {
+    return "Idle";
+  }
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function clearNode(node) {
+  node.innerHTML = "";
+}
+
+function appendModalSection(title, bodyNode) {
+  const section = document.createElement("section");
+  section.className = "prompt-modal-section";
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  section.appendChild(heading);
+  section.appendChild(bodyNode);
+  elements.promptModalBody.appendChild(section);
+}
+
+function openPromptModal(prompt) {
+  elements.promptModalTitle.textContent = `Prompt ${prompt.number}: ${prompt.title}`;
+  clearNode(elements.promptModalBody);
+
+  const summaryBlock = document.createElement("div");
+  summaryBlock.className = "prompt-modal-grid";
+
+  const conceptCard = document.createElement("article");
+  conceptCard.className = "prompt-modal-card";
+  const conceptLabel = document.createElement("span");
+  conceptLabel.textContent = "Concept";
+  const conceptText = document.createElement("p");
+  conceptText.textContent = prompt.concept || "Not provided";
+  conceptCard.append(conceptLabel, conceptText);
+  summaryBlock.appendChild(conceptCard);
+
+  const durationCard = document.createElement("article");
+  durationCard.className = "prompt-modal-card";
+  const durationLabel = document.createElement("span");
+  durationLabel.textContent = "Duration";
+  const durationText = document.createElement("p");
+  durationText.textContent = prompt.duration || "Not provided";
+  durationCard.append(durationLabel, durationText);
+  summaryBlock.appendChild(durationCard);
+
+  appendModalSection("Overview", summaryBlock);
+
+  if (Array.isArray(prompt.beats) && prompt.beats.length) {
+    const beatList = document.createElement("div");
+    beatList.className = "prompt-beat-list";
+    for (const beat of prompt.beats) {
+      const row = document.createElement("article");
+      row.className = "prompt-beat-item";
+      const timestamp = document.createElement("strong");
+      timestamp.textContent = beat.timestamp;
+      const description = document.createElement("p");
+      description.textContent = beat.description;
+      row.append(timestamp, description);
+      beatList.appendChild(row);
+    }
+    appendModalSection("Beats", beatList);
+  }
+
+  if (Array.isArray(prompt.extras) && prompt.extras.length) {
+    const extrasList = document.createElement("ul");
+    extrasList.className = "prompt-extra-list";
+    for (const extra of prompt.extras) {
+      const item = document.createElement("li");
+      item.textContent = extra;
+      extrasList.appendChild(item);
+    }
+    appendModalSection("Extras", extrasList);
+  }
+
+  if (prompt.speechSound) {
+    const speechBlock = document.createElement("pre");
+    speechBlock.className = "prompt-modal-code";
+    speechBlock.textContent = prompt.speechSound;
+    appendModalSection("Speech & Sound", speechBlock);
+  }
+
+  const fullPromptBlock = document.createElement("pre");
+  fullPromptBlock.className = "prompt-modal-code";
+  fullPromptBlock.textContent = prompt.positivePrompt || "Prompt text unavailable.";
+  appendModalSection("Full Prompt", fullPromptBlock);
+
+  if (typeof elements.promptModal.showModal === "function") {
+    elements.promptModal.showModal();
+  } else {
+    elements.promptModal.setAttribute("open", "open");
+  }
+}
+
+function closePromptModal() {
+  if (typeof elements.promptModal.close === "function") {
+    elements.promptModal.close();
+  } else {
+    elements.promptModal.removeAttribute("open");
+  }
 }
 
 function updateSelectionSummary() {
@@ -137,6 +278,7 @@ function renderPromptGrid() {
     const title = fragment.querySelector(".prompt-title");
     const concept = fragment.querySelector(".prompt-concept");
     const duration = fragment.querySelector(".prompt-duration");
+    const detailButton = fragment.querySelector(".prompt-detail-button");
 
     badge.textContent = String(prompt.number).padStart(2, "0");
     title.textContent = prompt.title;
@@ -154,6 +296,12 @@ function renderPromptGrid() {
       }
       renderPromptGrid();
       updateSelectionSummary();
+    });
+
+    detailButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openPromptModal(prompt);
     });
 
     elements.promptGrid.appendChild(fragment);
@@ -236,14 +384,21 @@ function renderRecentOutputs(items) {
   for (const item of items) {
     const row = document.createElement("article");
     row.className = "recent-item";
+    const viewed = isVideoViewed(item.path);
+    if (viewed) {
+      row.classList.add("is-viewed");
+    }
     row.innerHTML = `
       <time>${formatDate(item.modifiedAt)}</time>
       <strong class="recent-name">${item.name}</strong>
       <div class="recent-size">${formatInteger(item.size)} bytes</div>
-      <button class="recent-open-button" type="button">Launch video</button>
+      <button class="recent-open-button ${viewed ? "is-viewed" : ""}" type="button">
+        ${viewed ? "Viewed" : "Launch video"}
+      </button>
       <code>${item.folder}</code>
     `;
-    row.querySelector(".recent-open-button").addEventListener("click", async () => {
+    const openButton = row.querySelector(".recent-open-button");
+    openButton.addEventListener("click", async () => {
       try {
         await fetchJson("/api/open-output", {
           method: "POST",
@@ -252,6 +407,10 @@ function renderRecentOutputs(items) {
             outputRoot: elements.outputRootInput.value.trim() || null,
           }),
         });
+        markVideoViewed(item.path);
+        row.classList.add("is-viewed");
+        openButton.classList.add("is-viewed");
+        openButton.textContent = "Viewed";
       } catch (error) {
         alert(error.message);
       }
@@ -285,9 +444,13 @@ function renderCurrentJob(job) {
   if (!job) {
     elements.missionState.textContent = "Idle";
     elements.missionState.className = "mission-state";
+    elements.missionAlert.className = "mission-alert";
+    elements.missionAlertText.textContent = "Standby";
     elements.jobStatusText.textContent = "No active job";
     elements.jobStatusText.classList.remove("live");
+    elements.jobStatusText.classList.remove("warning");
     elements.livePanel.classList.remove("is-live");
+    elements.livePanel.classList.remove("is-stopping");
     elements.progressBar.style.width = "0%";
     elements.currentJobPanel.innerHTML =
       '<p class="empty-state">Start a batch to watch prompt-by-prompt progress here.</p>';
@@ -297,7 +460,11 @@ function renderCurrentJob(job) {
   const percent = job.totalRuns ? Math.round((job.completedRuns / job.totalRuns) * 100) : 0;
   if (job.status === "running" && job.totalRuns) {
     const activeRun = job.currentRunIndex || Math.max(job.completedRuns + 1, 1);
-    elements.jobStatusText.textContent = `running • run ${activeRun}/${job.totalRuns}`;
+    elements.jobStatusText.textContent = `LIVE • running run ${activeRun}/${job.totalRuns}`;
+  } else if (job.status === "stopping") {
+    elements.jobStatusText.textContent = `STOPPING • ${job.completedRuns}/${job.totalRuns || 0} runs complete`;
+  } else if (job.status === "stopped") {
+    elements.jobStatusText.textContent = `stopped • ${job.completedRuns}/${job.totalRuns || job.completedRuns} runs complete`;
   } else if (job.status === "completed") {
     elements.jobStatusText.textContent = `completed • ${job.completedRuns}/${job.totalRuns || job.completedRuns} runs`;
   } else if (job.status === "failed") {
@@ -305,10 +472,17 @@ function renderCurrentJob(job) {
   } else {
     elements.jobStatusText.textContent = `${job.status} • ${job.completedRuns}/${job.totalRuns || 0} runs`;
   }
-  elements.missionState.textContent = job.status;
+  elements.missionState.textContent = titleCaseStatus(job.status);
   elements.missionState.className = `mission-state ${job.status}`;
   elements.jobStatusText.classList.toggle("live", job.status === "running");
+  elements.jobStatusText.classList.toggle("warning", job.status === "stopping");
   elements.livePanel.classList.toggle("is-live", job.status === "running");
+  elements.livePanel.classList.toggle("is-stopping", job.status === "stopping");
+  elements.missionAlert.className = `mission-alert ${
+    job.status === "running" ? "is-live" : job.status === "stopping" ? "is-stopping" : ""
+  }`.trim();
+  elements.missionAlertText.textContent =
+    job.status === "running" ? "Live render" : job.status === "stopping" ? "Stopping now" : "Standby";
   elements.progressBar.style.width = `${percent}%`;
 
   const panel = document.createElement("article");
@@ -364,9 +538,22 @@ function renderCurrentJob(job) {
   }
 }
 
-function setRunLocked(isLocked) {
-  elements.startRunButton.disabled = isLocked;
-  elements.jobGuardLabel.textContent = isLocked ? "Batch in progress" : "Idle";
+function setRunControls(activeJob) {
+  const hasActiveJob = Boolean(activeJob);
+  const canStop = Boolean(activeJob && ["queued", "running"].includes(activeJob.status) && !activeJob.stopRequested);
+
+  elements.startRunButton.disabled = hasActiveJob;
+  elements.stopRunButton.disabled = !canStop;
+
+  if (!activeJob) {
+    elements.jobGuardLabel.textContent = "Idle";
+    return;
+  }
+  if (activeJob.status === "stopping") {
+    elements.jobGuardLabel.textContent = "Stopping batch";
+    return;
+  }
+  elements.jobGuardLabel.textContent = "Batch in progress";
 }
 
 async function refreshHealth() {
@@ -394,7 +581,7 @@ async function refreshStatus() {
   state.recentJobs = payload.recentJobs || [];
   renderCurrentJob(payload.activeJob || state.recentJobs[0] || null);
   renderEventLog(payload.activeJob || state.recentJobs[0] || null);
-  setRunLocked(Boolean(payload.activeJobId));
+  setRunControls(payload.activeJob || null);
 }
 
 async function refreshImageLibrary() {
@@ -453,6 +640,7 @@ async function initialize() {
 
   state.defaults = config;
   state.promptFiles = promptFilesPayload.items || [];
+  state.viewedVideos = loadViewedVideos();
 
   const savedTheme = window.localStorage.getItem(THEME_KEY) || DEFAULT_THEME;
   applyTheme(savedTheme);
@@ -461,6 +649,7 @@ async function initialize() {
   elements.serverUrlInput.value = runtimeConfig.serverUrl || config.defaultServerUrl;
   elements.comfyInputDirInput.value = runtimeConfig.comfyInputDir || config.comfyInputDir;
   elements.outputRootInput.value = runtimeConfig.outputRoot || config.outputRoot;
+  elements.videoLengthInput.value = runtimeConfig.videoLengthSeconds || String(config.defaultVideoLength || "");
   updateOutputRootDisplay(elements.outputRootInput.value.trim() || config.outputRoot);
 
   state.activePromptFile = config.defaultPromptFile || state.promptFiles[0]?.key || null;
@@ -484,12 +673,13 @@ async function startRun(event) {
     promptFile: state.activePromptFile,
     image: elements.imageSelect.value,
     variations: Number(elements.variationsInput.value),
+    videoLengthSeconds: elements.videoLengthInput.value.trim() || null,
     seedBase: elements.seedBaseInput.value.trim() || null,
     promptNumbers,
   };
 
   try {
-    setRunLocked(true);
+    setRunControls({ status: "queued", stopRequested: false });
     persistRuntimeConfig();
     await fetchJson("/api/jobs", {
       method: "POST",
@@ -499,7 +689,26 @@ async function startRun(event) {
     await refreshRecentOutputs();
   } catch (error) {
     alert(error.message);
-    setRunLocked(false);
+    setRunControls(null);
+  }
+}
+
+async function stopRun() {
+  const shouldStop = window.confirm("Stop the current batch and interrupt the active render?");
+  if (!shouldStop) {
+    return;
+  }
+
+  try {
+    elements.stopRunButton.disabled = true;
+    await fetchJson("/api/jobs/stop", {
+      method: "POST",
+      body: "{}",
+    });
+    await refreshStatus();
+  } catch (error) {
+    alert(error.message);
+    await refreshStatus();
   }
 }
 
@@ -542,6 +751,7 @@ function handleRuntimeConfigInput() {
 }
 
 elements.runForm.addEventListener("submit", startRun);
+elements.stopRunButton.addEventListener("click", stopRun);
 elements.selectAllButton.addEventListener("click", selectAllPrompts);
 elements.clearAllButton.addEventListener("click", clearAllPrompts);
 elements.refreshHealthButton.addEventListener("click", refreshHealth);
@@ -551,6 +761,13 @@ elements.reloadPathsButton.addEventListener("click", handlePathReload);
 elements.serverUrlInput.addEventListener("change", handleRuntimeConfigInput);
 elements.comfyInputDirInput.addEventListener("change", handlePathReload);
 elements.outputRootInput.addEventListener("change", handlePathReload);
+elements.videoLengthInput.addEventListener("change", handleRuntimeConfigInput);
+elements.promptModalCloseButton.addEventListener("click", closePromptModal);
+elements.promptModal.addEventListener("click", (event) => {
+  if (event.target === elements.promptModal) {
+    closePromptModal();
+  }
+});
 
 initialize()
   .then(() => {
