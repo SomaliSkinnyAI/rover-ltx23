@@ -1,0 +1,149 @@
+format: rover_prompt_pack_v1
+name: LTX 2.3 Rover Prompt Sequences
+description: Sample rover-chase prompt pack for LTX 2.3 image-to-video runs.
+prompts:
+  - number: 1
+    title: The Inciting Incident
+    concept: Focuses on the sudden transition from standoff to attack, establishing the driver's gritty demeanor.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-3s
+        description: "Tight, ground-level tracking shot follows one of the large creature's eyes as it twitches in the low light. Dust swirls."
+      - timestamp: 3-6s
+        description: "Cut to a close-up of the alien driver inside the cage. He narrows his eyes, his clawed fingers gripping the yoke. His mouth moves."
+      - timestamp: 6-15s
+        description: "Action: The creatures shriek and pounce. The rover accelerates, kicking up a rooster tail of red dust. The front tire hits a small rock, lifting the vehicle slightly. A split-second lens flare hits the camera."
+    speech_sound: >-
+      The alien speaks with a low, clicking growl: "Looks like the locals are hungry."
+      Followed by deafening creature shrieks and the roaring engine.
+
+  - number: 2
+    title: The Defensive Blast
+    concept: Emphasizes the rover's point-defense capabilities with an action-movie quip.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: "Medium Shot: Three creatures are mid-air, leaping toward the rover. One lands right next to the driver's cage, snarling."
+      - timestamp: 5-10s
+        description: "Action: The alien driver turns his head sharply to the creature, baring his teeth as he speaks. The rover's central defense turret rotates rapidly and fires stroboscopic red laser bolts."
+      - timestamp: 10-15s
+        description: "The creatures recoil in pain, a puff of orange vapor rising from a laser hit. The rover accelerates."
+    speech_sound: >-
+      The alien barks sharply: "Have a taste of the sun!" High-pitched "zzt-zzt" of lasers,
+      agonizing yelps, and heavy acceleration.
+
+  - number: 3
+    title: Creature Swarm & Drive-Through
+    concept: A highly kinetic shot with the driver treating the deadly swarm as a mere inconvenience.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-7s
+        description: "Wide-Angle Low Shot: Perspective is from the ground. The giant rover tires drive directly over the camera."
+      - timestamp: 7-15s
+        description: "Action: Cut to a quick dash-cam perspective of the alien driver wrestling the yoke as creatures thud against the hull. He grunts his line. Defensive lasers pulse outward, dislodging the creatures."
+    speech_sound: >-
+      The alien grunts through gritted teeth: "Nothing but speed bumps." Mixed with deep engine
+      resonance and the rapid thump of bodies hitting the desert floor.
+
+  - number: 4
+    title: Driver's Focus & Tech
+    concept: Puts the focus on the driver's cold precision and the holographic targeting system.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-6s
+        description: "Over-the-shoulder POV: The glowing holographic display casts blue and orange light on the driver's face. He locks eyes on the targeting reticle and speaks."
+      - timestamp: 6-11s
+        description: "A large laser cannon deploys from the vehicle's top."
+      - timestamp: 11-15s
+        description: "Action: A powerful, continuous red laser beam obliterates the furthest creature in a massive dust cloud."
+    speech_sound: >-
+      The alien whispers with cold precision: "Target lock. Goodnight." Electronic chirps from
+      the console and a deep, pulsing hum of the laser firing.
+
+  - number: 5
+    title: The Chase & Rear Defense
+    concept: A classic chase shot with a taunting line delivered over the shoulder.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: "Inside the Cockpit: The alien driver glances at a rear-view monitor, smirks, and yells over his shoulder."
+      - timestamp: 5-10s
+        description: "Action: Cut to a high drone shot behind the rover. A dozen creatures are in full sprint pursuit. Rear laser ports open and fire pulsing blasts into the ground between the creatures."
+      - timestamp: 10-15s
+        description: "The rover creates a massive dust wall, making the creatures disappear into a red haze."
+    speech_sound: >-
+      The alien yells loudly over the engine: "Choke on it!" Sound shifts to the high-speed whine
+      of the engine and explosive rear laser pulses.
+
+  - number: 6
+    title: Environmental Damage & Debris
+    concept: Highlights the destructive nature of the heavy vehicle as the driver forces his way through.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: "Action: Close-up on the alien driver inside the violently shaking cockpit. He shouts as he downshifts aggressively."
+      - timestamp: 5-10s
+        description: "Action: Exterior wide shot. The heavy rover violently slams into a large, spiky desert shrub, obliterating it in a massive cloud of red dust and plant fibers."
+      - timestamp: 10-15s
+        description: "The rover bursts through the debris cloud at top speed, covered in dust and plant matter."
+    speech_sound: >-
+      The alien roars with pure adrenaline: "Making my own road!" Accompanied by the deep
+      physical crunch of the plant life and a roaring engine.
+
+  - number: 7
+    title: Close-Quarters Shredding
+    concept: A moment of annoyance from the driver as the creatures get too close to his prized vehicle.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: "Action (Slow-Motion): Two creatures are scaling the roll cage directly above the driver, claws digging into the metal."
+      - timestamp: 5-10s
+        description: "Action (Normal Speed): The alien driver looks up, glares, and snarls a line as he slams a bright red dashboard button."
+      - timestamp: 10-15s
+        description: "A blinding blue-white electrical discharge sparks across the roll cage, stunning the creatures and violently throwing them off."
+    speech_sound: >-
+      The alien snarls angrily: "Get off the paint job!" A sharp mechanical "clack" of the button
+      followed by a deafening, high-pitched electrical arc.
+
+  - number: 8
+    title: Reaching the Water
+    concept: The tension breaks slightly as the driver spots the safe zone.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: "Low, Wide-Angle Tracking: The rover crests a dune. The distant, choppy turquoise shoreline comes into clear view."
+      - timestamp: 5-10s
+        description: "Cut to the driver's face. His tense posture visibly eases. He lets out a breath and speaks softly to the machine."
+      - timestamp: 10-15s
+        description: "Action: The rover hits wet, hard-packed mud at high speed, sliding slightly and kicking up wet spray. The creatures lag behind on the dry sand."
+    speech_sound: >-
+      The alien exhales a breathy, gravelly whisper: "There's the borderline. Hold together, old
+      girl." Engine tone changes as tires hit the wet mud, mixed with distant, defeated growls.
+
+  - number: 9
+    title: The Impossible Climb
+    concept: Highlighting the extreme stakes and the driver psyching himself up for a vertical maneuver.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-7s
+        description: "High-Angle Vertical Shot: The rover is forced to ascend a near-vertical cliff face to escape the swarm."
+      - timestamp: 7-15s
+        description: "Action: Cut to the driver pushed back hard into his seat by gravity. He grips the controls white-knuckled and mutters to himself. The rover uses claw-like treads and underbelly lasers to clear the path upward."
+    speech_sound: >-
+      The alien mutters through strained exertion: "Up we go. Don't look down." The deep grinding
+      protest of heavy gears and close-quarters "zapping" of lasers.
+
+  - number: 10
+    title: Break to Freedom
+    concept: The triumphant, splashy finale.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: "Tracking Shot: The rover is at full-tilt toward the shoreline. A creature makes a desperate, final lunge."
+      - timestamp: 5-10s
+        description: "Action: A laser burst obliterates the creature. The alien driver throws his head back and shouts in victory just as the rover launches off the edge."
+      - timestamp: 10-15s
+        description: "Action: The rover hits the water. A majestic, slow-motion reverse wave of turquoise water explodes upward. The rover stabilizes in the surf."
+    speech_sound: >-
+      The alien shouts triumphantly: "Let's see you swim, freaks!" Followed by the massive, heavy
+      crash of water and an ascending orchestral crescendo.

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>R.O.V.E.R. | LTX 2.3 Mission Control</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy panel">
+          <p class="hero-kicker">Render Operations for Variant Execution and Review.</p>
+          <h1>R.O.V.E.R.</h1>
+          <p class="hero-text">
+            A live command deck for prompt-driven video batches, reproducible seed pairs, and tracked outputs across
+            your LTX 2.3 workflow.
+          </p>
+        </div>
+        <div class="hero-stats panel">
+          <div class="status-row">
+            <span class="status-pill" id="comfyHealthPill">Checking backend</span>
+            <button class="ghost-button" id="refreshHealthButton" type="button">Recheck</button>
+          </div>
+          <div class="theme-row">
+            <label class="theme-picker" for="themeSelect">
+              <span>Theme</span>
+              <select id="themeSelect" name="theme">
+                <option value="signal">Signal Deck</option>
+                <option value="graphite">Graphite Ice</option>
+                <option value="ember">Ember Dusk</option>
+              </select>
+            </label>
+          </div>
+          <dl class="stat-grid">
+            <div>
+              <dt>Loaded Prompts</dt>
+              <dd id="promptCount">0</dd>
+            </div>
+            <div>
+              <dt>Input Images</dt>
+              <dd id="imageCount">0</dd>
+            </div>
+            <div>
+              <dt>Recent Renders</dt>
+              <dd id="recentCount">0</dd>
+            </div>
+            <div>
+              <dt>Output Root</dt>
+              <dd id="outputRootDisplay" class="small-mono">Loading...</dd>
+            </div>
+          </dl>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="control-column">
+          <div class="panel form-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">ROVER Console</p>
+                <h2>Launch Sequence</h2>
+              </div>
+              <span class="microcopy" id="jobGuardLabel">Idle</span>
+            </div>
+            <form id="runForm">
+              <label class="field">
+                <span>ComfyUI Server URL</span>
+                <input id="serverUrlInput" name="serverUrl" type="text" spellcheck="false">
+              </label>
+
+              <div class="field-group two-col">
+                <label class="field">
+                  <span>Comfy Input Dir</span>
+                  <input id="comfyInputDirInput" name="comfyInputDir" type="text" spellcheck="false">
+                </label>
+                <label class="field">
+                  <span>Output Root</span>
+                  <input id="outputRootInput" name="outputRoot" type="text" spellcheck="false">
+                </label>
+              </div>
+              <div class="button-row button-row-compact">
+                <button class="ghost-button" id="reloadPathsButton" type="button">Reload Paths</button>
+              </div>
+              <p class="field-note" id="pathStatusNote">Loading ComfyUI paths...</p>
+
+              <label class="field">
+                <span>Prompt Pack</span>
+                <select id="promptFileSelect" name="promptFile"></select>
+              </label>
+              <p class="field-note" id="promptPackNote">Loading prompt pack...</p>
+
+              <div class="field-group two-col">
+                <label class="field">
+                  <span>Seed Image</span>
+                  <select id="imageSelect" name="image"></select>
+                </label>
+                <label class="field">
+                  <span>Variations Per Prompt</span>
+                  <input id="variationsInput" name="variations" type="number" min="1" max="20" value="3">
+                </label>
+              </div>
+
+              <div class="field-group two-col">
+                <label class="field">
+                  <span>Seed Base</span>
+                  <input id="seedBaseInput" name="seedBase" type="text" placeholder="Optional integer">
+                </label>
+                <label class="field">
+                  <span>Prompt Selection</span>
+                  <input id="selectionSummary" type="text" value="All prompts selected" readonly>
+                </label>
+              </div>
+
+              <div class="button-row">
+                <button class="primary-button" id="startRunButton" type="submit">Start ROVER Batch</button>
+                <button class="ghost-button" id="selectAllButton" type="button">Select All</button>
+                <button class="ghost-button" id="clearAllButton" type="button">Clear All</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel prompts-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">ROVER Prompt Deck</p>
+                <h2>Prompt Selection</h2>
+              </div>
+              <span class="microcopy" id="promptDeckSubtitle">Loading prompt pack...</span>
+            </div>
+            <div class="prompt-grid" id="promptGrid"></div>
+          </div>
+        </section>
+
+        <aside class="status-column">
+          <div class="panel live-panel" id="livePanel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">ROVER Telemetry</p>
+                <h2>Mission Status</h2>
+              </div>
+              <span class="microcopy" id="jobStatusText">No active job</span>
+            </div>
+            <div class="mission-strip">
+              <div class="mission-state" id="missionState">Idle</div>
+              <div class="mission-progress">
+                <div class="mission-progress-bar" id="progressBar"></div>
+              </div>
+            </div>
+            <div class="status-stack" id="currentJobPanel">
+              <p class="empty-state">Start a batch to watch prompt-by-prompt progress here.</p>
+            </div>
+          </div>
+
+          <div class="panel log-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">ROVER Log</p>
+                <h2>Event Stream</h2>
+              </div>
+              <span class="microcopy">Newest first</span>
+            </div>
+            <div class="log-list" id="eventLog">
+              <p class="empty-state">No events yet.</p>
+            </div>
+          </div>
+
+          <div class="panel recent-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">ROVER Archive</p>
+                <h2>Recent Renders</h2>
+              </div>
+              <span class="microcopy">Latest audio mp4 outputs on disk</span>
+            </div>
+            <div class="recent-list" id="recentOutputs">
+              <p class="empty-state">No renders found yet.</p>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <template id="promptCardTemplate">
+      <label class="prompt-card">
+        <input class="prompt-toggle" type="checkbox">
+        <div class="prompt-card-head">
+          <span class="prompt-badge"></span>
+          <span class="prompt-title"></span>
+        </div>
+        <p class="prompt-concept"></p>
+        <p class="prompt-duration"></p>
+      </label>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

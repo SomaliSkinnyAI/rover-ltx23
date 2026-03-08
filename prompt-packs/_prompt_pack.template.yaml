@@ -1,0 +1,20 @@
+format: rover_prompt_pack_v1
+name: Replace With Pack Name
+description: Short summary shown in the R.O.V.E.R. prompt-pack selector.
+
+prompts:
+  - number: 1
+    title: Replace With Prompt Title
+    concept: One-line concept summary for the placard.
+    duration: 15 seconds
+    beats:
+      - timestamp: 0-5s
+        description: First beat description.
+      - timestamp: 5-10s
+        description: Second beat description.
+      - timestamp: 10-15s
+        description: Third beat description.
+    extras:
+      - Optional extra line that should be appended to the final positive prompt.
+    speech_sound: >-
+      Optional dialogue, voice direction, and sound design notes.
