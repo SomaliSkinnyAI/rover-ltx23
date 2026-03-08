@@ -34,6 +34,16 @@ python -m pip install -r .\requirements.txt
 8. Add a seed image to your ComfyUI input folder
 9. Select a prompt pack and run a batch
 
+## Screenshots
+
+### Main Console
+
+![ROVER main console](docs/screenshots/rover-console.png)
+
+### Console + Telemetry + Prompt Deck
+
+![ROVER tall overview](docs/screenshots/rover-tall.png)
+
 ## What This Project Does
 
 R.O.V.E.R. takes:
@@ -97,6 +107,11 @@ OutputRoot/LTX2.3/PromptIteration/<prompt#>/
 prompt-packs/
   rover-prompt-pack.yaml
   _prompt_pack.template.yaml
+
+docs/
+  screenshots/
+    rover-console.png
+    rover-tall.png
 
 webui/
   index.html
