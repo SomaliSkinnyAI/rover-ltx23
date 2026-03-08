@@ -37,7 +37,7 @@ python -m pip install -r .\requirements.txt
 
 ## Screenshots
 
-![ROVER tall overview](docs/screenshots/rover-tall.png)
+![ROVER tall overview](docs/screenshots/rover-tall-v2.png)
 
 ## What This Project Does
 
@@ -105,7 +105,7 @@ prompt-packs/
 
 docs/
   screenshots/
-    rover-tall.png
+    rover-tall-v2.png
 
 webui/
   index.html
