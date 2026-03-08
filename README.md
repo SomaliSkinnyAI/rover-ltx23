@@ -36,12 +36,6 @@ python -m pip install -r .\requirements.txt
 
 ## Screenshots
 
-### Main Console
-
-![ROVER main console](docs/screenshots/rover-console.png)
-
-### Console + Telemetry + Prompt Deck
-
 ![ROVER tall overview](docs/screenshots/rover-tall.png)
 
 ## What This Project Does
@@ -110,7 +104,6 @@ prompt-packs/
 
 docs/
   screenshots/
-    rover-console.png
     rover-tall.png
 
 webui/
