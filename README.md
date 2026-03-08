@@ -12,6 +12,28 @@ This project wraps a ComfyUI LTX 2.3 image-to-video workflow with:
 
 The goal is simple: start from one seed image, run multiple prompts and multiple seeded variations, and keep the results traceable.
 
+## Quick Start
+
+1. Install latest ComfyUI and start it.
+2. Install Python 3.10+ and run:
+
+```powershell
+python -m pip install -r .\requirements.txt
+```
+
+3. Install the required custom nodes listed below.
+4. Download the required model files listed below into the correct ComfyUI model folders.
+5. Start the local UI:
+
+```powershell
+.\run_rover_web_ui.ps1 -ComfyUrl http://127.0.0.1:8000/
+```
+
+6. Open `http://127.0.0.1:8765`
+7. Set `Comfy Input Dir` and `Output Root` if your ComfyUI install is not under `C:\ComfyUI`
+8. Add a seed image to your ComfyUI input folder
+9. Select a prompt pack and run a batch
+
 ## What This Project Does
 
 R.O.V.E.R. takes:
